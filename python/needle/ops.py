@@ -193,7 +193,12 @@ class MatMul(TensorOp):
 
     def gradient(self, out_grad, node):
         lhs, rhs = node.inputs
-        return matmul(out_grad, transpose(rhs)), matmul(transpose(lhs), out_grad)
+        lshape, rshape = lhs.cached_data.shape, rhs.cached_data.shape
+        lhs_grad = matmul(out_grad, transpose(rhs))
+        rhs_grad = matmul(transpose(lhs), out_grad)
+        num_dims = len(lshape) - len(rshape)
+        return (lhs_grad if num_dims >= 0 else summation(lhs_grad, tuple(range(-num_dims))),
+                rhs_grad if num_dims <= 0 else summation(rhs_grad, tuple(range(num_dims))))
 
 
 def matmul(a, b):
