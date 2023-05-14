@@ -141,7 +141,7 @@ class Reshape(TensorOp):
         return array_api.reshape(a, self.shape)
 
     def gradient(self, out_grad, node):
-        return (array_api.reshape(out_grad, node.inputs[0].shape),)
+        return (reshape(out_grad, node.inputs[0].cached_data.shape),)
 
 
 def reshape(a, shape):
@@ -156,7 +156,11 @@ class BroadcastTo(TensorOp):
         return array_api.broadcast_to(a, self.shape)
 
     def gradient(self, out_grad, node):
-        raise NotImplementedError()
+        original_shape = node.inputs[0].cached_data.shape
+        num_extra_dims = len(self.shape) - len(original_shape)
+        dims_to_reduce = tuple(range(num_extra_dims)) + \
+            tuple(i + num_extra_dims for i in range(len(original_shape)) if original_shape[i] == 1)
+        return (reshape(summation(out_grad, dims_to_reduce), original_shape),)
 
 
 def broadcast_to(a, shape):
@@ -171,9 +175,12 @@ class Summation(TensorOp):
         return array_api.sum(a, self.axes)
 
     def gradient(self, out_grad, node):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        original_shape = node.inputs[0].cached_data.shape
+        total_dim = len(original_shape)
+        if self.axes is None:
+            self.axes = tuple(range(total_dim))
+        new_shape = tuple(1 if i in self.axes else original_shape[i] for i in range(total_dim))
+        return (broadcast_to(reshape(out_grad, new_shape), original_shape),)
 
 
 def summation(a, axes=None):
@@ -185,9 +192,8 @@ class MatMul(TensorOp):
         return array_api.matmul(a, b)
 
     def gradient(self, out_grad, node):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        lhs, rhs = node.inputs
+        return matmul(out_grad, transpose(rhs)), matmul(transpose(lhs), out_grad)
 
 
 def matmul(a, b):
