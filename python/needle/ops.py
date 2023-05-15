@@ -32,7 +32,7 @@ class AddScalar(TensorOp):
         return a + self.scalar
 
     def gradient(self, out_grad: Tensor, node: Tensor):
-        return out_grad
+        return (out_grad,)
 
 
 def add_scalar(a, scalar):
@@ -141,7 +141,7 @@ class Reshape(TensorOp):
         return array_api.reshape(a, self.shape)
 
     def gradient(self, out_grad, node):
-        return (reshape(out_grad, node.inputs[0].cached_data.shape),)
+        return (reshape(out_grad, node.inputs[0].shape),)
 
 
 def reshape(a, shape):
@@ -175,7 +175,7 @@ class Summation(TensorOp):
         return array_api.sum(a, self.axes)
 
     def gradient(self, out_grad, node):
-        original_shape = node.inputs[0].cached_data.shape
+        original_shape = node.inputs[0].shape
         total_dim = len(original_shape)
         if self.axes is None:
             self.axes = tuple(range(total_dim))
@@ -193,7 +193,7 @@ class MatMul(TensorOp):
 
     def gradient(self, out_grad, node):
         lhs, rhs = node.inputs
-        lshape, rshape = lhs.cached_data.shape, rhs.cached_data.shape
+        lshape, rshape = lhs.shape, rhs.shape
         lhs_grad = matmul(out_grad, transpose(rhs))
         rhs_grad = matmul(transpose(lhs), out_grad)
         num_dims = len(lshape) - len(rshape)
@@ -247,7 +247,7 @@ class ReLU(TensorOp):
         return array_api.maximum(a, 0)
 
     def gradient(self, out_grad, node):
-        return ((node.inputs[0] > 0) * out_grad,)
+        return (Tensor(node.inputs[0].realize_cached_data() > 0) * out_grad,)
 
 
 def relu(a):
